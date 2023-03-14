@@ -1,21 +1,18 @@
-from flask import Flask, jsonify, redirect, url_for, request
-import json
+from flask import Flask, jsonify, request
 import requests
 
-# initialize Flask app
 app = Flask(__name__)
 
-redis_urls = {'list': ["http://localhost:5000/games", "http://localhost:5000/games"], 'current_index': 0}
-mongo_urls = {'list': ["http://localhost:5001/games", "http://localhost:5001/games"], 'current_index': 0}
-# for testing purposes is now repeating the same address
-# add new addresses for round-robin
+REDIS_URLS = (["http://localhost:5000/games", "http://localhost:5000/games"], 0)
+MONGO_URLS = (["http://localhost:5001/games", "http://localhost:5001/games"], 0)
+NEWS_URLS = (["http://localhost:5002/news", "http://localhost:5002/news"], 0)
 
 
 def round_robin(urls):
-    index = urls['current_index']
-    array = urls['list']
+    array, index = urls
     index = (index + 1) % len(array)
-    urls['current_index'] = index
+    print
+    urls = (array, index)
 
     return array[index]
 
@@ -23,61 +20,67 @@ def round_robin(urls):
 @app.route('/db_sync', methods=['GET'])
 def call_db_sync():
     if request.method == 'GET':
-        mongo_url = round_robin(mongo_urls)
+        mongo_url = round_robin(MONGO_URLS)
         response = requests.get(mongo_url)
-    else:
-        # even if we add a method this prevents us from an error
-        return jsonify({'message': f'The method {request.method} is not allowed for the requested URL.'}), 400
-
-    # accessing the mongo database from the gateway with put and get data
-    return response.json(), response.status_code
+        return response.json(), response.status_code
+    return jsonify({'message': f'The method {request.method} is not allowed for the requested URL.'}), 400
 
 
 @app.route('/api', methods=['GET', 'PUT'])
 def call_api():
     if request.method == 'PUT':
-        mongo_url = round_robin(mongo_urls)
+        mongo_url = round_robin(MONGO_URLS)
         json_data = request.get_json()
         response = requests.put(mongo_url, json=json_data)
     elif request.method == 'GET':
-        redis_url = round_robin(redis_urls)
+        redis_url = round_robin(REDIS_URLS)
         response = requests.get(redis_url)
     else:
-        # even if we add a method this prevents us from an error
         return jsonify({'message': f'The method {request.method} is not allowed for the requested URL.'}), 400
-
-    # accessing the mongo database from the gateway with put and get data
     return response.json(), response.status_code
 
 
 @app.route('/api/rating', methods=['PUT'])
-def call_api_api_rating():
+def call_api_rating():
     json_data = request.get_json()
-    mongo_url = round_robin(mongo_urls)+'/rating'
+    mongo_url = round_robin(MONGO_URLS)[0] + '/rating'
     response = requests.put(mongo_url, json=json_data)
     return response.json(), 201
 
-# @app.route('/status', methods=['GET'])
-# def status():
-#     # define endpoint to check the availability and functionality of the Gateway API
-#     try:
-#         response = requests.get('http://localhost:5000/status')
-#         second_api_status = 'Second API connected.' if response.ok else 'Second API not connected.'
-#     except requests.exceptions.ConnectionError:
-#         second_api_status = 'Second API not connected.'
-#     # return status of both Gateway API and Second API
-#     return jsonify({'gateway': 'Gateway API connected.', 'redis': redis_status, 'second_api': second_api_status})
-#     # check if Redis database is connected
-#     # check if Second API is available
-#     try:
-#         response = requests.get('http://localhost:5001/status')
-#         second_api_status = 'Second API connected.' if response.ok else 'Second API not connected.'
-#     except requests.exceptions.ConnectionError:
-#         second_api_status = 'Second API not connected.'
-#     # return status of both Gateway API and Second API
-#     return jsonify({'gateway': 'Gateway API connected.', 'redis': redis_status, 'second_api': second_api_status})
+
+@app.route('/api/news', methods=['GET', 'PUT'])
+def call_news_api():
+    if request.method == 'PUT':
+        news_url = round_robin(NEWS_URLS)
+        json_data = request.get_json()
+        response = requests.put(news_url, json=json_data)
+    elif request.method == 'GET':
+        news_url = round_robin(NEWS_URLS)
+        response = requests.get(news_url)
+    else:
+        return jsonify({'message': f'The method {request.method} is not allowed for the requested URL.'}), 400
+    return response.json(), response.status_code
 
 
-# run Flask app if executed as main module
+@app.route('/api/news/comment', methods=['PUT'])
+def call_news_comments():
+    json_data = request.get_json()
+    news_url = round_robin(NEWS_URLS)[0] + '/comments'
+    response = requests.put(news_url, json=json_data)
+    return response.json(), 201
+
+
+@app.route('/api/status', methods=['GET'])
+def call_status_api():
+    url = round_robin(REDIS_URLS)
+    url_news = round_robin(NEWS_URLS)
+    response = requests.get(url + '/status')
+    news_response = requests.get(url_news + '/status')
+    gateway_response = response.json()
+    gateway_response['gateway'] = 'gateway active'
+    gateway_response.update(news_response.json())
+    return gateway_response, response.status_code
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=8000)
