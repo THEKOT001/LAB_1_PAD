@@ -1,9 +1,7 @@
-# import necessary packages and dependencies
 from flask import Flask, jsonify
 import redis
 import requests
-import threading
-import time
+
 
 # initialize Flask app
 app = Flask(__name__)
@@ -24,7 +22,7 @@ def get_games():
         games = eval(redis_db.get('games'))
     else:
         # retrieve games data from the Second API
-        games_data = requests.get('http://localhost:8000/db_sync').json()['games']
+        games_data = requests.get('http://localhost:8000/db_sync').json()
         # get only the name and price of each game
         games = [{game['name']: game['price']} for game in games_data]
         # cache games data in Redis
