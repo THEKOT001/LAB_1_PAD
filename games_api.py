@@ -22,25 +22,26 @@ game_schema = {
     'rating': list,
     'final_rating': float
 }
-# rating_schema = {
-#     # the name should be taken from the schema above, so it will be the same
-#     "name": str,
-#     # the average will change every time then the new rating is added
-#     "average": float,
-#     "rating_1": int
-#     # "rating_2": int,
-#     # "rating_3": int
-#     # add more rating fields as needed
-# }
-# comment_schema = {
-#     "game": str,
-#     "user": str,
-#     "type": str,
-#     "lvl": int,
-#     "comment": str,
-#     "rating": int
-#
-# }
+rating_schema = {
+    # the name should be taken from the schema above, so it will be the same
+    "name": str,
+    # the average will change every time then the new rating is added
+    "average": float,
+    "rating_1": int
+    # "rating_2": int,
+    # "rating_3": int
+    # add more rating fields as needed
+}
+comment_schema = {
+    "game": str,
+    "user": str,
+    "type": str,
+    "lvl": int,
+    "comment": str,
+    "rating": int
+
+}
+
 
 # define endpoint to get games from the MongoDB database
 @app.route('/games', methods=['GET'])
@@ -60,15 +61,19 @@ def add_game():
     # validate game data
     game_data['rating'] = []
     game_data['final_rating'] = 0
-    for key, value_type in game_schema.items(): # Using dict.items() to loop through dict key-value pairs
+    for key, value_type in game_schema.items():
+        # Using dict.items() to loop through dict key-value pairs
         if key not in game_data:
             return jsonify({'message': f'Missing {key} parameter in request.'}), 400
         elif not isinstance(game_data[key], value_type): # Use isinstance() to check value type
             return jsonify({'message': f'{key} parameter has incorrect data type.'}), 400
     # insert game data into MongoDB database
     games_collection.insert_one(game_data)
+    # TODO: uncomment if rating_collection exists and requires insertion of game_data
+    # rating_collection.insert_one(game_data)
     # return success message
     return jsonify({'message': f'{game_data["name"]} added to games collection.'}), 201
+
 
 @app.route('/games/rating', methods=['PUT'])
 def add_rating():
@@ -80,6 +85,7 @@ def add_rating():
     # Calculate the medium rating
     rating = game['rating']
     rating.append(new_rating)
+
     final_rating = sum(rating) / len(rating)
 
     rating = game['rating']

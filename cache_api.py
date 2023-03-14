@@ -1,7 +1,9 @@
+# import necessary packages and dependencies
 from flask import Flask, jsonify
 import redis
 import requests
-
+import threading
+import time
 
 # initialize Flask app
 app = Flask(__name__)
@@ -39,18 +41,18 @@ def get_games():
     return jsonify({'games': games, 'ttl': ttl})
 
 # define endpoint to check the availability and functionality of the Gateway API
-@app.route('/status')
+@app.route('/games/status')
 def status():
     # check if Redis database is connected
     redis_status = 'Redis database connected.' if redis_db.ping() else 'Redis database not connected.'
     # check if Second API is available
     try:
         response = requests.get('http://localhost:5001/status')
-        second_api_status = 'Second API connected.' if response.ok else 'Second API not connected.'
+        second_api_status = 'MongoBD API connected.' if response.ok else 'MongoDB API not connected.'
     except requests.exceptions.ConnectionError:
-        second_api_status = 'Second API not connected.'
+        second_api_status = 'MongoDB API not connected connection error.'
     # return status of both Gateway API and Second API
-    return jsonify({'gateway': 'Gateway API connected.', 'redis': redis_status, 'second_api': second_api_status})
+    return jsonify({'redis_Api': redis_status, 'Mongo_Api': second_api_status})
 
 
 # run Flask app if executed as main module
