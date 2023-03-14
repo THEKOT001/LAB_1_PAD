@@ -1,16 +1,29 @@
-# import necessary packages and dependencies
-from flask import Flask, jsonify, redirect, url_for,request
+from flask import Flask, jsonify, redirect, url_for, request
 import json
 import requests
 
 # initialize Flask app
 app = Flask(__name__)
 
+redis_urls = {'list': ["http://localhost:5000/games", "http://localhost:5000/games"], 'current_index': 0}
+mongo_urls = {'list': ["http://localhost:5001/games", "http://localhost:5001/games"], 'current_index': 0}
+# for testing purposes is now repeating the same address
+# add new addresses for round-robin
+
+
+def round_robin(urls):
+    index = urls['current_index']
+    array = urls['list']
+    index = (index + 1) % len(array)
+    urls['current_index'] = index
+
+    return array[index]
+
 
 @app.route('/db_sync', methods=['GET'])
 def call_db_sync():
-    mongo_url = "http://localhost:5001/games"
     if request.method == 'GET':
+        mongo_url = round_robin(mongo_urls)
         response = requests.get(mongo_url)
     else:
         # even if we add a method this prevents us from an error
@@ -22,12 +35,12 @@ def call_db_sync():
 
 @app.route('/api', methods=['GET', 'PUT'])
 def call_api():
-    redis_url = "http://localhost:5000/games"
-    mongo_url = "http://localhost:5001/games"
     if request.method == 'PUT':
+        mongo_url = round_robin(mongo_urls)
         json_data = request.get_json()
         response = requests.put(mongo_url, json=json_data)
     elif request.method == 'GET':
+        redis_url = round_robin(redis_urls)
         response = requests.get(redis_url)
     else:
         # even if we add a method this prevents us from an error
@@ -36,6 +49,13 @@ def call_api():
     # accessing the mongo database from the gateway with put and get data
     return response.json(), response.status_code
 
+
+@app.route('/api/rating', methods=['PUT'])
+def call_api_api_rating():
+    json_data = request.get_json()
+    mongo_url = round_robin(mongo_urls)+'/rating'
+    response = requests.put(mongo_url, json=json_data)
+    return response.json(), 201
 
 # @app.route('/status', methods=['GET'])
 # def status():
@@ -60,4 +80,4 @@ def call_api():
 
 # run Flask app if executed as main module
 if __name__ == '__main__':
-    app.run(debug=True,port = 8000)
+    app.run(debug=True, port=8000)
